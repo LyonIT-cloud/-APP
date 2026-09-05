@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>運維設備與網絡監控系統 | Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="app_logo.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-logo">
+                <div class="logo-icon" style="background: transparent; padding: 0;">
+                    <img src="app_logo.png" alt="DG Logo" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: block;">
+                </div>
+                <div class="logo-text">
+                    <h1>TOPDGI <span class="divider">|</span> <span class="sub-title">設備與網絡運維中心</span></h1>
+                    <span class="system-status-pill">Enterprise Console</span>
+                </div>
+            </div>
+            
+            <div class="header-stats">
+                <div class="stat-card">
+                    <span class="stat-label">網絡在線率</span>
+                    <span class="stat-value text-green" id="net-status">99.8%</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">設備總數</span>
+                    <span class="stat-value" id="device-total-value">0 台</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">待處理異常</span>
+                    <span class="stat-value text-red" id="alert-count-val">0 筆</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">系統監控時間</span>
+                    <span class="stat-value font-mono" id="uptime-value">00:00:00</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="toggle-container">
+                    <span class="toggle-label">自動派工 (Auto Dispatch)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-pilot-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <button class="btn btn-primary" id="btn-open-batch-ops" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: bold; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    📢 批次推播與檔案派送
+                </button>
+                <button class="btn btn-secondary" id="btn-trigger-incident">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    模擬隨機故障
+                </button>
+            </div>
+        </header>
+        <main class="app-main">
+            <section class="panel left-panel">
+                <div class="panel-section incident-section">
+                    <div class="section-header">
+                        <h2>異常警報工單列表 (<span id="ticket-queue-count">0</span>)</h2>
+                    </div>
+                    <div class="ticket-list" id="ticket-list">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" class="text-green">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            <p>目前無未處理警報，網絡運作正常</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-section filter-section">
+                    <div class="section-header">
+                        <h2>地圖顯示控制</h2>
+                    </div>
+                    <div class="filter-controls">
+                        <div class="control-group" style="margin-bottom: 12px;">
+                            <label for="search-input" style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">🔍 搜尋設備</label>
+                            <input type="text" id="search-input" class="select-input" placeholder="輸入名稱、IP、MAC 或部門..." style="width: 100%; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); border-radius: 4px; padding: 8px; color: var(--text-color); font-size: 0.85rem; box-sizing: border-box;">
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="toggle-show-ip">
+                                <span class="checkmark"></span>
+                                顯示設備 IP 標籤
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="toggle-show-mac">
+                                <span class="checkmark"></span>
+                                顯示設備 MAC 標籤
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label for="filter-dept">篩選部門區域</label>
+                            <select id="filter-dept" class="select-input">
+                                <option value="all">顯示全部部門</option>
+                                <option value="IT運維部">IT運維部</option>
+                                <option value="研發處">研發處</option>
+                                <option value="業務處">業務處</option>
+                                <option value="行銷處">行銷處</option>
+                                <option value="行政處">行政處</option>
+                                <option value="管理部">管理部</option>
+                                <option value="生產部">生產部</option>
+                                <option value="倉儲部">倉儲部</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section unassigned-section" style="margin-top: 15px; display: flex; flex-direction: column; flex: 1; min-height: 180px;">
+                    <div class="section-header">
+                        <h2>📦 待分配位置終端 (<span id="unassigned-count">0</span>)</h2>
+                    </div>
+                    <div id="unassigned-list" class="unassigned-list" style="flex: 1; overflow-y: auto; padding: 10px 0; max-height: 250px;">
+                        <div class="empty-state" style="padding: 15px; text-align: center; color: var(--text-muted); font-size: 0.8rem; border: 1px dashed var(--border-color); border-radius: 4px;">
+                            目前所有真實設備皆已分配完畢
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section dept-mgmt-section" style="margin-top: 15px; margin-bottom: 5px;">
+                    <div class="section-header">
+                        <h2>🏢 部門與空間管理</h2>
+                    </div>
+                    <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 8px;">
+                        <button class="btn btn-secondary" id="btn-open-dept-mgmt" style="width: 100%; padding: 8px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer;">⚙️ 管理與編輯本層空間區域</button>
+                        <button class="btn btn-secondary" id="btn-open-floor-mgmt" style="width: 100%; padding: 8px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer;">🏗️ 新增或編輯樓層選項</button>
+                    </div>
+                </div>
+            </section>
+            <section class="panel center-panel">
+                <div class="map-view-card">
+                    <div class="floor-tabs" id="floor-tabs">
+                        <button class="tab-btn active" data-floor="3">3F 研發部門 / 核心機房</button>
+                        <button class="tab-btn" data-floor="2">2F 業務部門 / 行銷中心</button>
+                        <button class="tab-btn" data-floor="1">1F 廠區配置</button>
+                    </div>
+                    <div class="map-container" id="map-container">
+                        <div class="floor-plan" id="floor-plan">
+                            
+                            <div class="zone-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px;">
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">管理部</div>
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">總經理辦公室</div>
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">董事長辦公室</div>
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">聯合辦公室</div>
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">大會議室</div>
+                                <div class="zone" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid #444; text-align: center;">小會議室</div>
+                                
+                                <div class="zone" style="background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #10b981; text-align: center;">SMT區域</div>
+                                <div class="zone" style="background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #10b981; text-align: center;">SMT產線</div>
+                                <div class="zone" style="background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #10b981; text-align: center;">DIP產線</div>
+                                
+                                <div class="zone" style="background: rgba(245, 158, 11, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #f59e0b; text-align: center;">倉管區域</div>
+                                <div class="zone" style="background: rgba(245, 158, 11, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #f59e0b; text-align: center;">電子倉庫</div>
+                                <div class="zone" style="background: rgba(59, 130, 246, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #3b82f6; text-align: center;">維修區</div>
+                            </div>
+                            
+                        </div>
+                        <div class="elevator-shaft" id="elevator-node">
+                            <div class="elevator-cabin">
+                                <span class="cabin-icon">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="17 11 12 6 7 11"></polyline>
+                                        <polyline points="17 18 12 13 7 18"></polyline>
+                                    </svg>
+                                </span>
+                                <span class="cabin-text">電梯</span>
+                            </div>
+                        </div>
+                        <div class="it-admin-character" id="it-admin">
+                            <div class="admin-sprite-container">
+                                <div class="engineer-pin">
+                                    <svg viewBox="0 0 24 24" class="pin-svg">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                    </svg>
+                                </div>
+                                <div class="admin-status-bubble" id="admin-status-bubble">工程師: 待命中</div>
+                            </div>
+                        </div>
+                        <div class="hud-card" id="device-hud-overlay">
+                            <div class="hud-header">
+                                <span class="hud-title">設備診斷詳細資訊 (SNMP / ARP)</span>
+                                <span class="hud-signal-scan">已連線</span>
+                            </div>
+                            <div class="hud-body">
+                                <div class="hud-row">
+                                    <span class="hud-label">主機名稱</span>
+                                    <span class="hud-val font-mono" id="hud-dev-name">-</span>
+                                </div>
+                                <div class="hud-row">
+                                    <span class="hud-label">設備類型</span>
+                                    <span class="hud-val" id="hud-dev-type">-</span>
+                                </div>
+                                <div class="hud-row">
+                                    <span class="hud-label">目前 IP</span>
+                                    <span class="hud-val font-mono text-cyan" id="hud-dev-ip">-</span>
+                                </div>
+                                <div class="hud-row">
+                                    <span class="hud-label">硬體 MAC</span>
+                                    <span class="hud-val font-mono text-gold" id="hud-dev-mac">-</span>
+                                </div>
+                                <div class="hud-row">
+                                    <span class="hud-label">網路埠狀態</span>
+                                    <span class="hud-val" id="hud-dev-status">-</span>
+                                </div>
+                                <div class="hud-row" id="hud-unassign-row" style="display: none; justify-content: flex-end; padding-top: 5px; flex-direction: column; gap: 5px;">
+                                    <button class="btn btn-secondary" id="btn-unassign-device" style="padding: 4px 10px; font-size: 0.7rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35); color: #ef4444; border-radius: 3px; cursor: pointer; font-weight: bold; width: 100%;">❌ 解除此設備的樓層部門分配</button>
+                                    <button class="btn" id="btn-open-remote-ops" style="padding: 5px 10px; font-size: 0.7rem; background: var(--color-green); border: 1px solid var(--color-green); color: white; border-radius: 3px; cursor: pointer; font-weight: bold; width: 100%;">🛠️ 遠端管理與控制面板</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="panel right-panel">
+                <div class="panel-section engineer-status-section">
+                    <div class="section-header">
+                        <h2>運維工程師狀態</h2>
+                    </div>
+                    <div class="eng-status-card">
+                        <div class="eng-avatar-placeholder">
+                            <img src="assets/admin_avatar.png" id="engineer-avatar-img" alt="IT Admin" onerror="this.style.display='none';">
+                            <div class="eng-fallback-avatar">IT</div>
+                        </div>
+                        <div class="eng-details">
+                            <h3 id="eng-name">Lyon (IT)</h3>
+                            <p class="eng-status-text" id="eng-status-lbl">狀態：待命 (Idle)</p>
+                            <div class="eng-dispatch-progress">
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar-fill" id="eng-progress" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-section local-net-section">
+                    <div class="section-header">
+                        <h2>本地網路狀態 (真實數據)</h2>
+                        <button class="btn-clear" id="btn-retest-net">測試網速</button>
+                    </div>
+                    <div class="local-net-grid">
+                        <div class="net-info-row">
+                            <span class="net-info-label">目前公網 IP:</span>
+                            <span class="net-info-val font-mono text-cyan" id="local-public-ip">偵測中...</span>
+                        </div>
+                        <div class="net-info-row">
+                            <span class="net-info-label">網路供應商:</span>
+                            <span class="net-info-val text-green" id="local-isp">偵測中...</span>
+                        </div>
+                        <div class="net-info-row">
+                            <span class="net-info-label">下載速度:</span>
+                            <span class="net-info-val font-mono">
+                                <span id="local-speed" class="text-gold">偵測中...</span>
+                                <span id="local-speed-status" style="margin-left: 6px; font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: none;">--</span>
+                            </span>
+                        </div>
+                        <div class="net-info-row">
+                            <span class="net-info-label">上傳速度:</span>
+                            <span class="net-info-val font-mono text-cyan" id="local-upload-speed">-- Mbps</span>
+                        </div>
+                        <div class="net-info-row">
+                            <span class="net-info-label">連線延遲:</span>
+                            <span class="net-info-val font-mono" id="local-ping">偵測中...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-section telemetry-section">
+                    <div class="section-header">
+                                           </div>
+                    <div class="telemetry-grid">
+                        <div class="tel-item">
+                            <span class="tel-label">91-DELL溫度</span>
+                            <div class="temp-gauge-container">
+                                <div class="temp-bar" id="temp-bar" style="height: 33%;"></div>
+                                <span class="temp-value" id="temp-val">38°C</span>
+                            </div>
+                        </div>
+                        <div class="tel-item full-width">
+                            <span class="tel-label">主骨幹網路頻寬流量</span>
+                            <div class="chart-container">
+                                <svg class="traffic-chart" viewBox="0 0 300 80" preserveAspectRatio="none">
+                                    <path class="chart-area" d="M 0 80 Q 50 40 100 60 T 200 20 T 300 50 L 300 80 L 0 80 Z"></path>
+                                    <path class="chart-line" d="M 0 80 Q 50 40 100 60 T 200 20 T 300 50"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-section console-section">
+                    <div class="section-header">
+                        <h2>IT 系統運維日誌</h2>
+                        <button class="btn-clear" id="btn-clear-log">清除日誌</button>
+                    </div>
+                    <div class="console-log" id="console-log">
+                        </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Department & Room Management Modal -->
+    <div id="dept-mgmt-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; font-family: var(--font-sans);">
+        <div class="modal-container" style="background: #111827; border: 1px solid var(--border-color); border-radius: 8px; width: 800px; max-height: 85%; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1rem; font-weight: bold;">🏢 部門與空間區域管理 - <span id="modal-floor-title">1F</span></h3>
+                <span id="btn-close-dept-mgmt" style="cursor: pointer; color: var(--text-muted); font-size: 1.5rem; font-weight: bold; line-height: 1;">&times;</span>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                <div style="margin-bottom: 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+                    提示：修改後的部門與空間名稱會儲存至伺服器，並即時反映於 3D 監控配置圖上。
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 4px;">
+                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-primary);">本樓層顯示名稱：</label>
+                    <input type="text" id="modal-floor-name-input" class="select-input" style="flex: 1; padding: 6px 10px; font-size: 0.8rem; background: #090d16; border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;" placeholder="例如：研發部門 / 核心機房">
+                </div>
+                <div id="modal-rooms-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Room items list will go here dynamically -->
+                </div>
+                <button class="btn btn-secondary" id="btn-add-new-room" style="width: 100%; margin-top: 15px; padding: 10px; font-size: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px dashed #10b981; color: #10b981; cursor: pointer; border-radius: 4px; font-weight: bold;">＋ 新增部門 / 空間區域</button>
+            </div>
+            <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: #0f172a; border-radius: 0 0 8px 8px;">
+                <button class="btn" id="btn-cancel-dept-save" style="padding: 8px 16px; font-size: 0.8rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; border-radius: 4px;">取消</button>
+                <button class="btn" id="btn-save-dept-changes" style="padding: 8px 16px; font-size: 0.8rem; background: var(--color-green); border: none; color: white; cursor: pointer; border-radius: 4px; font-weight: bold;">💾 保存部門設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floor Management Modal -->
+    <div id="floor-mgmt-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; font-family: var(--font-sans);">
+        <div class="modal-container" style="background: #111827; border: 1px solid var(--border-color); border-radius: 8px; width: 600px; max-height: 80%; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1rem; font-weight: bold;">🏗️ 樓層選項管理中心</h3>
+                <span id="btn-close-floor-mgmt" style="cursor: pointer; color: var(--text-muted); font-size: 1.5rem; font-weight: bold; line-height: 1;">&times;</span>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                <div style="margin-bottom: 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+                    提示：在此新增或修改樓層，點擊保存後將即時更新頂部樓層切換分頁。
+                </div>
+                <div id="modal-floors-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Floor list will go here dynamically -->
+                </div>
+                <button class="btn btn-secondary" id="btn-add-new-floor" style="width: 100%; margin-top: 15px; padding: 10px; font-size: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px dashed #10b981; color: #10b981; cursor: pointer; border-radius: 4px; font-weight: bold;">＋ 新增全新樓層</button>
+            </div>
+            <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: #0f172a; border-radius: 0 0 8px 8px;">
+                <button class="btn" id="btn-cancel-floor-save" style="padding: 8px 16px; font-size: 0.8rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; border-radius: 4px;">取消</button>
+                <button class="btn" id="btn-save-floor-changes" style="padding: 8px 16px; font-size: 0.8rem; background: var(--color-green); border: none; color: white; cursor: pointer; border-radius: 4px; font-weight: bold;">💾 保存樓層設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remote Operations Modal -->
+    <div id="remote-ops-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 101; align-items: center; justify-content: center; font-family: var(--font-sans);">
+        <div class="modal-container" style="background: #111827; border: 1px solid var(--border-color); border-radius: 8px; width: 900px; height: 85%; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); overflow: hidden;">
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; font-weight: bold;">🛠️ 遠端管理與控制中心 - <span id="remote-ops-device-title">-</span></h3>
+                <span id="btn-close-remote-ops" style="cursor: pointer; color: var(--text-muted); font-size: 1.5rem; font-weight: bold; line-height: 1;">&times;</span>
+            </div>
+            <!-- Global loading progress bar -->
+            <div id="remote-ops-loading" style="width: 100%; height: 3px; background: rgba(255,255,255,0.05); display: none; overflow: hidden; position: relative; z-index: 10;">
+                <div id="remote-ops-loading-bar" style="width: 0%; height: 100%; background: var(--color-green); transition: width 0.3s ease;"></div>
+            </div>
+            
+            <div style="display: flex; flex: 1; overflow: hidden;">
+                <!-- Tab sidebar -->
+                <div style="width: 200px; background: rgba(0,0,0,0.2); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 10px 0;">
+                    <button class="remote-tab-btn active" data-tab="sysinfo" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">🔍 系統資產盤點</button>
+                    <button class="remote-tab-btn" data-tab="screen" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">👁️ 螢幕畫面監看 (觀察者)</button>
+                    <button class="remote-tab-btn" data-tab="console" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">🐚 遠端命令列</button>
+                    <button class="remote-tab-btn" data-tab="files" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">📁 檔案派送與收集</button>
+                    <button class="remote-tab-btn" data-tab="broadcast" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">📣 公告訊息推播</button>
+                    <button class="remote-tab-btn" data-tab="power" style="text-align: left; padding: 12px 18px; background: transparent; border: none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; cursor: pointer;">🔌 電源與喚醒控制</button>
+                </div>
+                
+                <!-- Tab body -->
+                <div style="flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: #0b0f19;">
+                    <!-- Tab 1: System Info -->
+                    <div id="remote-tab-sysinfo" class="remote-tab-content" style="display: flex; flex-direction: column; height: 100%;">
+                        <h4 style="color: var(--text-primary); margin-top: 0; margin-bottom: 12px; font-size: 0.95rem;">💻 終端系統規格與硬體資訊</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">CPU 處理器負載</div>
+                                <div id="remote-cpu-val" style="font-size: 1.8rem; font-weight: bold; color: #10b981;">- %</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">RAM 記憶體使用率</div>
+                                <div id="remote-ram-val" style="font-size: 1.8rem; font-weight: bold; color: #3b82f6;">- %</div>
+                                <div id="remote-ram-detail" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 3px;">-/- GB</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">C 磁碟空間使用率</div>
+                                <div id="remote-disk-val" style="font-size: 1.8rem; font-weight: bold; color: #f59e0b;">- %</div>
+                                <div id="remote-disk-health" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 3px;">健康度: -</div>
+                            </div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 20px; font-size: 0.8rem; font-family: monospace; color: var(--text-primary);">
+                            作業系統版本: <span id="remote-os-val">-</span> (核心版本: <span id="remote-os-kernel">-</span>)
+                        </div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 0.95rem;">📦 已安裝軟體資產清單 (<span id="remote-software-count">0</span>)</h4>
+                        <div style="flex: 1; border: 1px solid var(--border-color); border-radius: 6px; overflow-y: auto; background: rgba(0,0,0,0.2); max-height: 250px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+                                <thead style="background: rgba(255,255,255,0.05); color: var(--text-muted); position: sticky; top: 0; z-index: 1;">
+                                    <tr>
+                                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">軟體名稱</th>
+                                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color); width: 120px;">版本</th>
+                                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color); width: 150px;">發行商</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="remote-software-table-body" style="color: var(--text-color);">
+                                    <tr>
+                                        <td colspan="3" style="padding: 20px; text-align: center; color: var(--text-muted);">正在載入軟體資產數據...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 2: Screen Observer -->
+                    <div id="remote-tab-screen" class="remote-tab-content" style="display: none; flex-direction: column; height: 100%;">
+                        <!-- Local self-monitoring mirror loop warning -->
+                        <div id="screen-mirror-warning" style="display: none; background: rgba(245, 158, 11, 0.07); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; padding: 10px 15px; border-radius: 6px; font-size: 0.75rem; line-height: 1.4; margin-bottom: 12px;">
+                            ⚠️ <strong>本機測試提醒：</strong> 您目前正在監看「本機電腦」。當在瀏覽器中觀看自己目前的畫面時，會產生「無限鏡像疊加」物理效果（Droste Effect），這是正常的螢幕捕捉循環現象，若監看其他同仁的遠端主機則不會有此問題。
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="color: var(--text-primary); margin: 0; font-size: 0.95rem;">👁️ 觀察者模式</h4>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-premium btn-premium-green" id="btn-toggle-screen-stream">▶️ 開始監看</button>
+                                <button class="btn btn-premium btn-premium-blue" id="btn-launch-rdp">⚡ 啟動 RDP 遠端連線</button>
+                            </div>
+                        </div>
+                        <div style="background: #000; border: 1px solid var(--border-color); border-radius: 6px; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 380px; position: relative;">
+                            <canvas id="remote-screen-canvas" style="max-width: 100%; max-height: 100%; border-radius: 4px; background: #000; display: block;"></canvas>
+                            <div id="screen-stream-status" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.7rem; font-family: monospace;">串流停止</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 3: Remote Console -->
+                    <div id="remote-tab-console" class="remote-tab-content" style="display: none; flex-direction: column; height: 100%;">
+                        <h4 style="color: var(--text-primary); margin-top: 0; margin-bottom: 10px; font-size: 0.95rem;">🐚 遠端命令列控制台 (Remote Shell)</h4>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <label style="color: var(--text-muted); font-size: 0.8rem; font-weight: bold;">核心：</label>
+                            <select id="console-shell-type" class="select-input" style="width: 130px; font-size: 0.75rem; padding: 4px 8px; height: 26px; border: 1px solid var(--border-color); background: #0f172a; color: white; border-radius: 4px;">
+                                <option value="cmd">Windows CMD</option>
+                                <option value="powershell">PowerShell</option>
+                            </select>
+                            <button class="btn btn-premium btn-premium-secondary" id="btn-clear-console" style="padding: 4px 12px; font-size: 0.75rem; height: auto;">🧹 清除終端畫面</button>
+                        </div>
+                        <div style="flex: 1; background: #010409; border: 1px solid #30363d; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; min-height: 300px;">
+                            <div id="remote-console-output" style="flex: 1; padding: 15px; overflow-y: auto; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.8rem; color: #c9d1d9; line-height: 1.5; white-space: pre-wrap; height: 250px;">Microsoft Windows [Version 10.0]\n(c) Microsoft Corporation. All rights reserved.\n\n[IT中控已就緒] 請在下方輸入指令執行...</div>
+                            <div style="border-top: 1px solid #30363d; display: flex; background: #0d1117;">
+                                <span style="color: #58a6ff; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.8rem; padding: 10px 0 10px 15px; user-select: none;">$</span>
+                                <input type="text" id="remote-console-input" placeholder="輸入指令並按下 Enter 執行 (例如: ipconfig, get-process)..." style="flex: 1; background: transparent; border: none; color: #c9d1d9; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.8rem; padding: 10px; outline: none; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 4: Files Manager -->
+                    <div id="remote-tab-files" class="remote-tab-content" style="display: none; flex-direction: column;">
+                        <h4 style="color: var(--text-primary); margin-top: 0; margin-bottom: 12px; font-size: 0.95rem;">📁 遠端檔案派送與日誌收集</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <!-- File Push -->
+                            <div style="background: rgba(255,255,255,0.02); padding: 15px; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; gap: 12px;">
+                                <h5 style="color: var(--text-primary); margin: 0 0 5px 0; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">📤 一鍵檔案/腳本派送</h5>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">選擇要派送的本機檔案/腳本</label>
+                                    <input type="file" id="file-push-source" style="font-size: 0.8rem; color: white; width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">目的端儲存完整路徑 (Windows Path)</label>
+                                    <input type="text" id="file-push-dest" value="桌面" placeholder="例如: C:\Windows\Temp\installer.bat" class="select-input" style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid var(--border-color); padding: 6px 10px; color: white; border-radius: 4px; font-size: 0.8rem;">
+                                </div>
+                                <div style="margin: 5px 0;">
+                                    <label class="checkbox-container" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px; color: var(--text-color);">
+                                        <input type="checkbox" id="file-push-run" style="margin: 0;">
+                                        派送完後立即在背景靜默執行該檔案
+                                    </label>
+                                </div>
+                                <button class="btn btn-premium btn-premium-green" id="btn-execute-file-push" style="width: 100%;">一鍵上傳並派送</button>
+                            </div>
+                            
+                            <!-- File Pull -->
+                            <div style="background: rgba(255,255,255,0.02); padding: 15px; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+                                <div>
+                                    <h5 style="color: var(--text-primary); margin: 0 0 5px 0; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">📥 遠端日誌/資料檔案收集</h5>
+                                    <div style="margin-top: 10px;">
+                                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">欲收集的遠端檔案完整路徑 (Windows Path)</label>
+                                        <input type="text" id="file-pull-source" placeholder="例如: C:\Windows\System32\Winevt\Logs\System.evtx" class="select-input" style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid var(--border-color); padding: 6px 10px; color: white; border-radius: 4px; font-size: 0.8rem;">
+                                    </div>
+                                </div>
+                                <button class="btn btn-premium btn-premium-blue" id="btn-execute-file-pull" style="width: 100%;">一鍵拉回日誌檔案並下載</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 5: Announcements -->
+                    <div id="remote-tab-broadcast" class="remote-tab-content" style="display: none; flex-direction: column;">
+                        <h4 style="color: var(--text-primary); margin-top: 0; margin-bottom: 12px; font-size: 0.95rem;">📢 運維公告即時廣播系統</h4>
+                        <div style="background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; gap: 15px;">
+                            <div>
+                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">廣播公告訊息內容 (將強制彈窗並置頂顯示在該電腦上)</label>
+                                <textarea id="broadcast-message-text" rows="5" class="select-input" style="width: 100%; font-family: inherit; font-size: 0.85rem; padding: 10px; border: 1px solid var(--border-color); background: #0f172a; color: white; border-radius: 4px; resize: vertical; box-sizing: border-box;" placeholder="輸入要廣播的公告內容..."></textarea>
+                            </div>
+                            <button class="btn btn-premium btn-premium-amber" id="btn-send-broadcast" style="width: 100%;">📣 立即對該台設備進行廣播公告</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 6: Power Control -->
+                    <div id="remote-tab-power" class="remote-tab-content" style="display: none; flex-direction: column;">
+                        <h4 style="color: var(--text-primary); margin-top: 0; margin-bottom: 12px; font-size: 0.95rem;">🔌 遠端電源控制與網路喚醒 (WOL)</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <!-- Active Power commands -->
+                            <div style="background: rgba(255,255,255,0.02); padding: 15px; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; gap: 10px; justify-content: space-between;">
+                                <div>
+                                    <h5 style="color: var(--text-primary); margin: 0 0 5px 0; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">重啟與關機 (需處於線上狀態)</h5>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 5px;">注意：此指令下達後，系統將會在被控端發送強制指令。同仁電腦會立即關閉，請確認已與同仁溝通避免資料遺失。</p>
+                                </div>
+                                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                    <button class="btn btn-premium btn-premium-orange" id="btn-power-reboot" style="flex: 1; padding: 10px;">🔄 遠端重開機</button>
+                                    <button class="btn btn-premium btn-premium-red" id="btn-power-shutdown" style="flex: 1; padding: 10px;">🛑 遠端強制關機</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Wake on LAN -->
+                            <div style="background: rgba(255,255,255,0.02); padding: 15px; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; gap: 10px; justify-content: space-between;">
+                                <div>
+                                    <h5 style="color: var(--text-primary); margin: 0 0 5px 0; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">網路喚醒 Wake-on-LAN</h5>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 5px;">當主機處於離線狀態時，IT部門可以在公司區域網路內廣播 Magic Packet 喚醒封包。主機網卡需開啟 WOL 支援。</p>
+                                </div>
+                                <button class="btn btn-premium btn-premium-green" id="btn-power-wol" style="width: 100%; padding: 10px; margin-top: 15px;">⚡ 發送 WOL 網路喚醒封包</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+    .remote-tab-btn {
+        transition: all 0.2s ease;
+    }
+    .remote-tab-btn:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: white !important;
+    }
+    .remote-tab-btn.active {
+        background: rgba(124, 140, 130, 0.15) !important;
+        color: var(--color-green) !important;
+        border-left: 3px solid var(--color-green) !important;
+    }
+    
+    /* Premium Button System */
+    .btn-premium {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        justify-content: center;
+    }
+    .btn-premium-green {
+        color: #10b981 !important;
+        border: 1px solid rgba(16, 185, 129, 0.3) !important;
+        background: rgba(16, 185, 129, 0.06) !important;
+    }
+    .btn-premium-green:hover {
+        background: #10b981 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;
+    }
+    .btn-premium-blue {
+        color: #3b82f6 !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        background: rgba(59, 130, 246, 0.06) !important;
+    }
+    .btn-premium-blue:hover {
+        background: #3b82f6 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.3) !important;
+    }
+    .btn-premium-amber {
+        color: #f59e0b !important;
+        border: 1px solid rgba(245, 158, 11, 0.3) !important;
+        background: rgba(245, 158, 11, 0.06) !important;
+    }
+    .btn-premium-amber:hover {
+        background: #f59e0b !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.3) !important;
+    }
+    .btn-premium-red {
+        color: #ef4444 !important;
+        border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        background: rgba(239, 68, 68, 0.06) !important;
+    }
+    .btn-premium-red:hover {
+        background: #ef4444 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
+    }
+    .btn-premium-orange {
+        color: #f97316 !important;
+        border: 1px solid rgba(249, 115, 22, 0.3) !important;
+        background: rgba(249, 115, 22, 0.06) !important;
+    }
+    .btn-premium-orange:hover {
+        background: #f97316 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 10px rgba(249, 115, 22, 0.3) !important;
+    }
+    .btn-premium-secondary {
+        color: var(--text-muted) !important;
+        border: 1px solid var(--border-color) !important;
+        background: rgba(255,255,255,0.02) !important;
+    }
+    .btn-premium-secondary:hover {
+        background: rgba(255,255,255,0.08) !important;
+        color: white !important;
+    }
+    </style>
+
+    <!-- Batch Operations Modal -->
+    <div id="batch-ops-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 102; align-items: center; justify-content: center; font-family: var(--font-sans);">
+        <div class="modal-container" style="background: #111827; border: 1px solid var(--border-color); border-radius: 8px; width: 950px; height: 85%; display: flex; flex-direction: column; box-shadow: 0 25px 30px -5px rgba(0,0,0,0.6); overflow: hidden;">
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #0f172a;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    🚀 多設備批次推播與檔案一鍵派送中心
+                </h3>
+                <span id="btn-close-batch-ops" style="cursor: pointer; color: var(--text-muted); font-size: 1.5rem; font-weight: bold; line-height: 1;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex: 1; overflow: hidden;">
+                <!-- Left: Target Devices Selection -->
+                <div style="width: 320px; background: rgba(0,0,0,0.25); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.9rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🎯 選擇目標主機</span>
+                        <span id="batch-selected-count" style="font-size: 0.75rem; color: #10b981; font-weight: normal;">已選 0 台</span>
+                    </h4>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button id="btn-batch-select-all" class="btn btn-secondary" style="flex: 1; padding: 5px; font-size: 0.75rem;">全選線上設備</button>
+                        <button id="btn-batch-deselect-all" class="btn btn-secondary" style="flex: 1; padding: 5px; font-size: 0.75rem;">取消全選</button>
+                    </div>
+                    
+                    <div id="batch-device-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+                        <!-- Dynamically populated target device checkboxes -->
+                    </div>
+                </div>
+
+                <!-- Right: Action Tabs (Broadcast & Push) -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: #111827; padding: 20px; overflow-y: auto; gap: 20px;">
+                    <!-- Action Mode Selector -->
+                    <div style="display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                        <button class="batch-tab-btn active" data-batch-tab="broadcast" style="padding: 8px 16px; border-radius: 6px; background: var(--color-green); border: none; color: white; font-weight: bold; cursor: pointer; font-size: 0.85rem;">📣 批次訊息公告廣播</button>
+                        <button class="batch-tab-btn" data-batch-tab="filepush" style="padding: 8px 16px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-color); font-weight: bold; cursor: pointer; font-size: 0.85rem;">📤 批次檔案/腳本派送</button>
+                    </div>
+
+                    <!-- Panel 1: Batch Broadcast -->
+                    <div id="batch-panel-broadcast" class="batch-panel" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: bold;">廣播公告訊息內容</label>
+                            <textarea id="batch-broadcast-text" rows="5" placeholder="請輸入欲同步廣播至各終端電腦的訊息內容..." style="width: 100%; box-sizing: border-box; background: #090d16; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: white; font-size: 0.85rem; resize: vertical;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); align-self: center;">常用範本：</span>
+                            <button class="btn btn-secondary batch-template-btn" data-template="【IT系統公告】即將於 10 分鐘後進行網路設備維護，請及時存檔。" style="padding: 4px 8px; font-size: 0.75rem;">網絡維護提醒</button>
+                            <button class="btn btn-secondary batch-template-btn" data-template="【資安宣導】請勿點擊不明郵件附件，並於離開座位時鎖定螢幕(Win+L)。" style="padding: 4px 8px; font-size: 0.75rem;">資安宣導</button>
+                            <button class="btn btn-secondary batch-template-btn" data-template="【下班提醒】請各位同仁下班前關閉個人電腦電源與延伸螢幕。" style="padding: 4px 8px; font-size: 0.75rem;">下班關機提醒</button>
+                        </div>
+
+                        <button id="btn-exec-batch-broadcast" class="btn" style="padding: 12px; font-size: 0.9rem; font-weight: bold; background: linear-gradient(135deg, #10b981, #059669); border: none; color: white; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            📣 聲明並同步推播至選定電腦
+                        </button>
+                    </div>
+
+                    <!-- Panel 2: Batch File Push -->
+                    <div id="batch-panel-filepush" class="batch-panel" style="display: none; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: bold;">1. 選擇欲同步派送的本機檔案/腳本</label>
+                            <input type="file" id="batch-file-source" style="font-size: 0.85rem; color: white; width: 100%; background: #090d16; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: bold;">2. 目的端儲存完整路徑 (Windows Path)</label>
+                            <input type="text" id="batch-file-dest" value="桌面" placeholder="預設為: 桌面 (可自動解析同仁桌面路徑)" class="select-input" style="width: 100%; box-sizing: border-box; background: #090d16; border: 1px solid var(--border-color); padding: 8px 10px; color: white; border-radius: 4px; font-size: 0.85rem;">
+                        </div>
+                        <div>
+                            <label class="checkbox-container" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px; color: var(--text-color);">
+                                <input type="checkbox" id="batch-file-run" checked>
+                                <span class="checkmark"></span>
+                                派送完成後，在各台終端背景靜默自動執行該檔案 (.ps1 / .bat / .exe)
+                            </label>
+                        </div>
+
+                        <button id="btn-exec-batch-filepush" class="btn" style="padding: 12px; font-size: 0.9rem; font-weight: bold; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border: none; color: white; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            🚀 一鍵同步派送至選定電腦
+                        </button>
+                    </div>
+
+                    <!-- Batch Result Log Box -->
+                    <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 140px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); display: flex; justify-content: space-between;">
+                            <span>📋 批次執行進度與即時日誌</span>
+                            <span id="batch-log-status" style="color: #3b82f6;">就緒</span>
+                        </div>
+                        <div id="batch-execution-log" style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: #a7f3d0; overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-all; max-height: 160px; line-height: 1.5;">
+等待觸發批次任務...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
